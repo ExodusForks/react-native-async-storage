@@ -98,10 +98,10 @@ public class ReactDatabaseSupplier extends SQLiteOpenHelper {
     if (mDb == null) {
       throw lastSQLiteException;
     }
-    // This is a sane limit to protect the user from the app storing too much data in the database.
-    // This also protects the database from filling up the disk cache and becoming malformed
+    // This would be a sane limit to protect the user from the app storing too much data in the database.
+    // This would also protect the database from filling up the disk cache and becoming malformed
     // (endTransaction() calls will throw an exception, not rollback, and leave the db malformed).
-    mDb.setMaximumSize(mMaximumDatabaseSize);
+    // mDb.setMaximumSize(mMaximumDatabaseSize);
     return true;
   }
 
