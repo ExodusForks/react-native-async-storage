@@ -10,13 +10,11 @@
     "RNCAsyncStorage.podspec",
     "android/build.gradle",
     "android/src",
-    "android/testresults.gradle",
     "ios/",
     "jest/",
     "lib/",
-    "macos/",
     "src/",
-    "windows/"
+    "!**/*.map"
   ],
   "author": "Krzysztof Borowy <hello@krizzu.dev>",
   "contributors": [
