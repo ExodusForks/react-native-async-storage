@@ -4,17 +4,17 @@
   "description": "Asynchronous, persistent, key-value storage system for React Native.",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
-  "react-native": "src/index.ts",
+  "react-native": "lib/commonjs/index.js",
   "types": "lib/typescript/index.d.ts",
   "files": [
     "RNCAsyncStorage.podspec",
     "android/build.gradle",
     "android/src",
+    "!android/src/test",
     "ios/",
-    "jest/",
     "lib/",
-    "src/",
-    "!**/*.map"
+    "!**/*.map",
+    "!lib/typescript"
   ],
   "author": "Krzysztof Borowy <hello@krizzu.dev>",
   "contributors": [
