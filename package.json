@@ -9,8 +9,7 @@
   "files": [
     "RNCAsyncStorage.podspec",
     "android/build.gradle",
-    "android/src",
-    "!android/src/test",
+    "android/src/main",
     "ios/",
     "lib/",
     "!**/*.map",
