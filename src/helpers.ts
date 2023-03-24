@@ -3,11 +3,16 @@ import type { ErrorLike } from './types';
 export function checkValidArgs(keyValuePairs: unknown[], callback: unknown) {
   if (
     !Array.isArray(keyValuePairs) ||
-    keyValuePairs.length === 0 ||
-    !Array.isArray(keyValuePairs[0])
+    (keyValuePairs.length > 0 && !Array.isArray(keyValuePairs[0]))
   ) {
     throw new Error(
       '[AsyncStorage] Expected array of key-value pairs as first argument to multiSet'
+    );
+  }
+
+  if (keyValuePairs.length === 0) {
+    console.warn(
+      '[AsyncStorage] Expected non-empty array of key-value pairs as first argument to multiSet'
     );
   }
 
