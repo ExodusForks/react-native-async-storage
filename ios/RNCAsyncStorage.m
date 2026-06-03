@@ -56,6 +56,30 @@ static BOOL RCTAsyncStorageSetExcludedFromBackup(NSString *path, NSNumber *isExc
     return success;
 }
 
+// Relax the data protection class on the storage directory (and its existing contents) to
+// NSFileProtectionCompleteUntilFirstUserAuthentication, so the manifest and value files stay
+// accessible after the first unlock following boot, including while the device is later locked.
+// The default NSFileProtectionComplete class blocks file access whenever the device is locked,
+// which fails when the app is woken in the background while locked (e.g. a geofence or push
+// event) and surfaces as "Failed to write manifest file" / "Could not open the existing manifest".
+static void RCTAsyncStorageSetDataProtection(NSString *directory)
+{
+    NSFileManager *fileManager = [[NSFileManager alloc] init];
+    NSDictionary *attributes =
+        @{NSFileProtectionKey : NSFileProtectionCompleteUntilFirstUserAuthentication};
+
+    NSError *error = nil;
+    if (![fileManager setAttributes:attributes ofItemAtPath:directory error:&error]) {
+        NSLog(@"Could not set data protection on AsyncStorage dir %@", error);
+        return;
+    }
+
+    for (NSString *item in [fileManager enumeratorAtPath:directory]) {
+        NSString *itemPath = [directory stringByAppendingPathComponent:item];
+        [fileManager setAttributes:attributes ofItemAtPath:itemPath error:NULL];
+    }
+}
+
 static void RCTAppendError(NSDictionary *error, NSMutableArray<NSDictionary *> **errors)
 {
     if (error && errors) {
@@ -275,9 +299,11 @@ static void RCTStorageDirectoryCleanupOld(NSString *oldDirectoryPath)
 
 static void _createStorageDirectory(NSString *storageDirectory, NSError **error)
 {
+    NSDictionary *attributes =
+        @{NSFileProtectionKey : NSFileProtectionCompleteUntilFirstUserAuthentication};
     [[NSFileManager defaultManager] createDirectoryAtPath:storageDirectory
                               withIntermediateDirectories:YES
-                                               attributes:nil
+                                               attributes:attributes
                                                     error:error];
 }
 
@@ -523,6 +549,8 @@ RCT_EXPORT_MODULE()
         }
         RCTAsyncStorageSetExcludedFromBackup(RCTCreateStorageDirectoryPath(RCTStorageDirectory),
                                              isExcludedFromBackup);
+
+        RCTAsyncStorageSetDataProtection(RCTGetStorageDirectory());
 
         NSDictionary *errorOut = nil;
         NSString *serialized = RCTReadFile(RCTCreateStorageDirectoryPath(RCTGetManifestFilePath()),
