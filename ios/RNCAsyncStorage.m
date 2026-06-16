@@ -14,6 +14,12 @@
 #import <React/RCTLog.h>
 #import <React/RCTUtils.h>
 
+#import <stdatomic.h>
+
+#if !TARGET_OS_OSX
+#import <UIKit/UIKit.h>
+#endif
+
 static NSString *const RCTStorageDirectory = @"RCTAsyncLocalStorage_V1";
 static NSString *const RCTOldStorageDirectory = @"RNCAsyncLocalStorage_V1";
 static NSString *const RCTExpoStorageDirectory = @"RCTAsyncLocalStorage";
@@ -412,6 +418,14 @@ RCTStorageDirectoryMigrationCheck(NSString *fromStorageDirectory,
     // values that are stored in separate files (as opposed to nil values which don't exist).  The
     // manifest is read off disk at startup, and written to disk after all mutations.
     NSMutableDictionary<NSString *, NSString *> *_manifest;
+#if !TARGET_OS_OSX
+    // Cached protected-data availability. Updated on the main thread from UIApplication
+    // notifications and read lock-free from the storage queue, so we never touch the
+    // main-thread-only UIApplication API off the main thread. Used to classify the
+    // before-first-unlock window as a transient (retryable) condition rather than a permanent
+    // failure, without changing the storage files' data protection class.
+    atomic_bool _protectedDataAvailable;
+#endif
 }
 
 + (BOOL)requiresMainQueueSetup
@@ -441,8 +455,42 @@ RCTStorageDirectoryMigrationCheck(NSString *fromStorageDirectory,
                                       RCTCreateStorageDirectoryPath(RCTStorageDirectory),
                                       NO);
 
+#if !TARGET_OS_OSX
+    // Optimistic default; corrected on the main thread below and kept in sync via notifications.
+    atomic_store(&_protectedDataAvailable, true);
+    __weak __typeof(self) weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      __typeof(self) strongSelf = weakSelf;
+      UIApplication *application = RCTSharedApplication();
+      if (strongSelf != nil && application != nil) {
+          atomic_store(&strongSelf->_protectedDataAvailable, application.isProtectedDataAvailable);
+      }
+    });
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    [center addObserver:self
+               selector:@selector(_protectedDataDidBecomeAvailable)
+                   name:UIApplicationProtectedDataDidBecomeAvailableNotification
+                 object:nil];
+    [center addObserver:self
+               selector:@selector(_protectedDataWillBecomeUnavailable)
+                   name:UIApplicationProtectedDataWillBecomeUnavailableNotification
+                 object:nil];
+#endif
+
     return self;
 }
+
+#if !TARGET_OS_OSX
+- (void)_protectedDataDidBecomeAvailable
+{
+    atomic_store(&_protectedDataAvailable, true);
+}
+
+- (void)_protectedDataWillBecomeUnavailable
+{
+    atomic_store(&_protectedDataAvailable, false);
+}
+#endif
 
 RCT_EXPORT_MODULE()
 
@@ -486,6 +534,9 @@ RCT_EXPORT_MODULE()
 
 - (void)dealloc
 {
+#if !TARGET_OS_OSX
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+#endif
     [self invalidate];
 }
 
@@ -502,6 +553,20 @@ RCT_EXPORT_MODULE()
 #if TARGET_OS_TV
     RCTLogWarn(
         @"Persistent storage is not supported on tvOS, your data may be removed at any point.");
+#endif
+
+#if !TARGET_OS_OSX
+    if (!atomic_load(&_protectedDataAvailable)) {
+        // The device has not been unlocked since boot, so the storage files (protected with the
+        // default NSFileProtectionCompleteUntilFirstUserAuthentication class) are not yet
+        // readable. This is transient and resolves on first unlock. Surface a distinct,
+        // explicitly-retryable error instead of attempting the read and reporting a permanent
+        // failure, and crucially do not create a fresh manifest that would clobber the locked
+        // data. The app can reach this path when iOS background-launches it before first unlock
+        // (e.g. a remote-notification wake).
+        return RCTMakeError(
+            @"AsyncStorage protected data unavailable, retry after device unlock", nil, nil);
+    }
 #endif
 
     NSError *error = nil;
