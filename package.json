@@ -102,6 +102,10 @@
     "setupFiles": [
       "./example/jest.setup.js"
     ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/lib/"
+    ],
     "moduleNameMapper": {
       "^@react-native-async-storage/async-storage$": "<rootDir>/src/index.ts"
     }
