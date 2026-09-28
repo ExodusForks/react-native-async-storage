@@ -46,6 +46,8 @@ If none of these fix the issue, please open an issue on the Github repository: h
 const AsyncStorage = ((): AsyncStorageStatic => {
   let _getRequests: MultiRequest[] = [];
   let _getKeys: string[] = [];
+  // Membership index for _getKeys, so batching stays linear in the number of keys.
+  let _getKeySet = new Set<string>();
   let _immediate: ReturnType<typeof setImmediate> | null = null;
 
   return {
@@ -196,6 +198,7 @@ const AsyncStorage = ((): AsyncStorageStatic => {
 
       _getRequests = [];
       _getKeys = [];
+      _getKeySet = new Set();
 
       RCTAsyncStorage.multiGet(
         getKeys,
@@ -277,7 +280,8 @@ const AsyncStorage = ((): AsyncStorageStatic => {
       _getRequests.push(getRequest);
       // avoid fetching duplicates
       keys.forEach((key) => {
-        if (_getKeys.indexOf(key) === -1) {
+        if (!_getKeySet.has(key)) {
+          _getKeySet.add(key);
           _getKeys.push(key);
         }
       });
