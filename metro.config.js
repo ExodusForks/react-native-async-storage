@@ -10,6 +10,10 @@ module.exports = {
   projectRoot: `${__dirname}/example`,
   watchFolders: [__dirname],
   resolver: {
+    // example/ imports the pre-rename name; webpack and RN configs alias it too.
+    extraNodeModules: {
+      '@react-native-async-storage/async-storage': `${__dirname}/src`,
+    },
     blockList: exclusionList([
       // This stops "react-native run-windows" from causing the metro server to crash if its already running
       new RegExp(

@@ -11,12 +11,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Cache /.ccache
-        uses: actions/cache@v3
-        with:
-          path: .ccache
-          key: ${{ runner.os }}-ccache-${{ hashFiles('yarn.lock') }}
-          restore-keys: ${{ runner.os }}-ccache-
+      # Disabled along with the native steps at the end of this job: nothing is compiled
+      # here any more, so there is no ccache to persist.
+      # - name: Cache /.ccache
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: .ccache
+      #     key: ${{ runner.os }}-ccache-${{ hashFiles('yarn.lock') }}
+      #     restore-keys: ${{ runner.os }}-ccache-
       - name: Set up Node.js
         uses: actions/setup-node@v3.4.1
         with:
@@ -25,18 +27,30 @@ jobs:
       - name: Install JS dependencies
         run: |
           yarn ci
+      - name: Lint, typecheck and unit tests
+        run: |
+          yarn test
       - name: Bundle JS
         run: |
           yarn bundle:macos
-      - name: Install macOS dependencies
-        run: |
-          pod install
-        working-directory: example/macos
-      - name: Build and test
-        run: |
-          yarn test:e2e:macos
+      # Disabled: react-native-macos@0.68 pins boost 1.76.0 to boostorg.jfrog.io, which
+      # JFrog has since deactivated. That URL now redirects to a "reactivate server"
+      # landing page and serves ~11kB of HTML instead of the tarball, so CocoaPods fails
+      # the checksum and `pod install` can never succeed. Re-enable these two steps, and
+      # the ccache step above, behind a live boost mirror or a react-native-macos bump.
+      # - name: Install macOS dependencies
+      #   run: |
+      #     pod install
+      #   working-directory: example/macos
+      # - name: Build and test
+      #   run: |
+      #     yarn test:e2e:macos
   windows:
     name: 'Windows'
+    # Disabled: GitHub removed the windows-2019 image, so no runner ever picks this job
+    # up and it sits queued until something cancels it. Re-enabling means moving to a
+    # supported image, which needs a react-native-windows version that supports one.
+    if: false
     runs-on: windows-2019
     steps:
       - name: Set up MSBuild
